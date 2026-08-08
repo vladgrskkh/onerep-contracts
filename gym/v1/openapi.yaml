@@ -1,0 +1,313 @@
+openapi: 3.1.0
+info:
+  title: OneRep Gym API
+  version: 1.0.0
+  description: Core gym domain — exercises, templates, workouts, progress tracking
+servers:
+  - url: http://localhost:8081/v1
+
+paths:
+  /exercises:
+    get:
+      operationId: listExercises
+      summary: List exercises with optional filters
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: muscle_group
+          in: query
+          schema:
+            type: string
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Only return exercises updated after this timestamp
+      responses:
+        "200":
+          description: List of exercises
+    post:
+      operationId: createExercise
+      summary: Create a custom exercise
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExercise"
+
+  /exercises/{id}:
+    get:
+      operationId: getExercise
+      summary: Get exercise with media and muscle groups
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+  /exercises/{id}/media:
+    post:
+      operationId: uploadExerciseMedia
+      summary: Upload photo or video for an exercise
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                media_type:
+                  type: string
+                  enum: [photo, video]
+
+  /templates:
+    get:
+      operationId: listTemplates
+      summary: List templates (mine or public)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: public
+          in: query
+          schema:
+            type: boolean
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+    post:
+      operationId: createTemplate
+      summary: Create a workout template
+      security:
+        - BearerAuth: []
+
+  /templates/{id}:
+    get:
+      operationId: getTemplate
+      summary: Get template with exercises
+      security:
+        - BearerAuth: []
+    patch:
+      operationId: updateTemplate
+      summary: Edit template
+      security:
+        - BearerAuth: []
+
+  /templates/{id}/publish:
+    post:
+      operationId: publishTemplate
+      summary: Make template public
+      security:
+        - BearerAuth: []
+
+  /templates/{id}/fork:
+    post:
+      operationId: forkTemplate
+      summary: Copy template to my list
+      security:
+        - BearerAuth: []
+
+  /workouts:
+    post:
+      operationId: startWorkout
+      summary: Start a workout (optionally from template)
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                template_id:
+                  type: string
+                  format: uuid
+    get:
+      operationId: listWorkouts
+      summary: List my workouts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+
+  /workouts/{id}:
+    get:
+      operationId: getWorkout
+      summary: Get workout with exercises and sets
+      security:
+        - BearerAuth: []
+
+  /workouts/{id}/exercises:
+    post:
+      operationId: addExerciseToWorkout
+      summary: Add exercise to active workout
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [exercise_id]
+              properties:
+                exercise_id:
+                  type: string
+                  format: uuid
+
+  /workouts/{id}/exercises/{exerciseId}/sets:
+    post:
+      operationId: logSet
+      summary: Log a set — returns PR status and estimated 1RM
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [weight_kg, reps]
+              properties:
+                weight_kg:
+                  type: number
+                reps:
+                  type: integer
+                rpe:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                rest_seconds:
+                  type: integer
+                is_warmup:
+                  type: boolean
+
+  /workouts/{id}/finish:
+    patch:
+      operationId: finishWorkout
+      summary: Mark workout as completed
+      security:
+        - BearerAuth: []
+
+  /progress/1rm:
+    get:
+      operationId: get1RM
+      summary: Estimated 1RM history per exercise
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: exercise_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+
+  /progress/volume:
+    get:
+      operationId: getVolume
+      summary: Volume per muscle group over time
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+
+  /progress/body-weight:
+    get:
+      operationId: getBodyWeight
+      summary: Body weight history
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+    post:
+      operationId: logBodyWeight
+      summary: Log body weight
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [weight_kg]
+              properties:
+                weight_kg:
+                  type: number
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateExercise:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        notes:
+          type: string
+        muscle_groups:
+          type: array
+          items:
+            type: object
+            properties:
+              muscle_group_id:
+                type: integer
+              is_primary:
+                type: boolean
