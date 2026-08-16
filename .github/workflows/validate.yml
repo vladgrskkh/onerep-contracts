@@ -12,4 +12,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-      - run: npx @apidevtools/swagger-cli validate **/*.yaml
+      - run: npx @apidevtools/swagger-cli validate auth/v1/openapi.yaml gym/v1/openapi.yaml
