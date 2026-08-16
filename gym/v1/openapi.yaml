@@ -60,7 +60,10 @@ paths:
   /exercises/{id}/media:
     post:
       operationId: uploadExerciseMedia
-      summary: Upload photo or video for an exercise
+      summary: Register exercise media and get a presigned upload URL
+      description: |
+        Creates a media record for the exercise and returns a presigned URL
+        the client PUTs the file to. The body is JSON, not multipart.
       security:
         - BearerAuth: []
       parameters:
@@ -71,17 +74,31 @@ paths:
             type: string
             format: uuid
       requestBody:
+        required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               type: object
+              required: [media_type, content_type]
               properties:
-                file:
-                  type: string
-                  format: binary
                 media_type:
                   type: string
                   enum: [photo, video]
+                content_type:
+                  type: string
+                  description: MIME type of the file to upload (e.g. image/jpeg, video/mp4)
+                  example: image/jpeg
+      responses:
+        "201":
+          description: Media registered and presigned upload URL issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaUploadResponse"
+        "400":
+          description: Invalid request or built-in exercise
+        "404":
+          description: Exercise not found
 
   /templates:
     get:
@@ -123,6 +140,48 @@ paths:
       summary: Make template public
       security:
         - BearerAuth: []
+
+  /templates/{id}/media:
+    post:
+      operationId: uploadTemplateMedia
+      summary: Register template media and get a presigned upload URL
+      description: |
+        Creates a photo media record for the template and returns a presigned
+        URL the client PUTs the file to. Template media is photo-only.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content_type]
+              properties:
+                content_type:
+                  type: string
+                  description: MIME type of the image to upload (e.g. image/jpeg)
+                  example: image/jpeg
+      responses:
+        "201":
+          description: Media registered and presigned upload URL issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaUploadResponse"
+        "400":
+          description: Invalid request or unsupported content type
+        "403":
+          description: Template belongs to another user
+        "404":
+          description: Template not found
 
   /templates/{id}/fork:
     post:
@@ -292,6 +351,22 @@ components:
       bearerFormat: JWT
 
   schemas:
+    MediaUploadResponse:
+      type: object
+      required: [id, s3_key, upload_url]
+      properties:
+        id:
+          type: string
+          format: uuid
+        s3_key:
+          type: string
+        upload_url:
+          type: string
+          format: uri
+        expires_in:
+          type: integer
+          format: int64
+          description: Presigned URL lifetime in seconds; omitted when unknown
     CreateExercise:
       type: object
       required: [name]
